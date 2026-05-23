@@ -294,6 +294,7 @@ export default class AuthService extends Service<State, ComputedState> {
         await this.restorePreviousSession();
         await this.restoreFlashRoute();
         await this.startupReconnect();
+        await this.autoLogin();
     }
 
     protected getInitialState(): State {
@@ -372,6 +373,17 @@ export default class AuthService extends Service<State, ComputedState> {
         }
 
         await this.reconnect();
+    }
+
+    private async autoLogin(): Promise<void> {
+        if (this.loggedIn || this.wasLoggedIn || !hasLocationQueryParameter('loginWith')) {
+            return;
+        }
+
+        const loginUrl = getLocationQueryParameter('loginWith') as string;
+
+        await Router.replace({ query: objectWithout(Router.currentRoute.value.query, ['loginWith']) });
+        await this.login(loginUrl);
     }
 
     private reconnectOnStartup(): boolean {
