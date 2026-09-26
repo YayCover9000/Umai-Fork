@@ -21,13 +21,14 @@
 </template>
 
 <script setup lang="ts">
+import App from '@/framework/core/facades/App';
 import Auth from '@/framework/core/facades/Auth';
 import { FormInputType, reactiveForm } from '@/framework/forms';
 
 const form = reactiveForm({
     url: {
         type: FormInputType.String,
-        default: 'https://',
+        default: App.env<string | undefined>('SOLID_DEFAULT_ISSUER') || 'https://',
         rules: 'required',
     },
 });

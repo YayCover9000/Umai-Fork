@@ -61,6 +61,7 @@
 import { stringToSlug, urlResolveDirectory } from '@noeldemartin/utils';
 import type { SolidContainer } from 'soukai-solid';
 
+import App from '@/framework/core/facades/App';
 import Auth from '@/framework/core/facades/Auth';
 import Cloud from '@/framework/core/facades/Cloud';
 import UI from '@/framework/core/facades/UI';
@@ -81,7 +82,7 @@ const form = reactiveForm({
     storageUrl: {
         type: FormInputType.String,
         rules: 'required',
-        default: Auth.user?.storageUrls[0],
+        default: App.env<string | undefined>('SOLID_DEFAULT_POD_URL') || Auth.user?.storageUrls[0],
     },
 });
 const $name = $ref<IFocusable | null>(null);
