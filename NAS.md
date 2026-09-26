@@ -27,14 +27,13 @@ docker compose up -d --build
 
 `http://<nas>:8787/` serves a page where you paste recipe urls (one per line), import them and share each one by e-mail to saved recipients (stored in `/data/recipients.json`). Imported recipes are made readable through their link (Umai's "Unlisted" profile); the message links to the public Umai viewer, so recipients do not need Tailscale. The first time, enter the import API key on the page.
 
-Keep it private to the tailnet:
+Keep it private to the tailnet: the ports listen on `127.0.0.1` only (`BIND_ADDR`), and `tailscale serve` publishes the API port with HTTPS inside the tailnet:
 
 ```bash
-echo "BIND_ADDR=$(tailscale ip -4)" >> .env      # ports listen only on the Tailscale address
-tailscale serve --bg --https=443 http://127.0.0.1:8787   # HTTPS at https://<nas>.<tailnet>.ts.net
+docker exec tailscale tailscale serve --bg --https=<port> http://127.0.0.1:8787
 ```
 
-Do not use `tailscale funnel`, it would expose the page to the internet. With `BIND_ADDR` set to the Tailscale address, `tailscale serve` should target that address instead of 127.0.0.1.
+Do not use `tailscale funnel`, it would expose the page to the internet. The setup GUI is best reached through an SSH tunnel (`ssh -L <port>:127.0.0.1:<SETUP_PORT> <nas>`), so the password never leaves the tunnel.
 
 ## Import from other tools
 

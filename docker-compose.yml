@@ -2,7 +2,7 @@ services:
   setup:
     build: ./setup
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:8080:8080"
+      - "${BIND_ADDR:-127.0.0.1}:${SETUP_PORT:-8080}:8080"
     volumes:
       - umai-data:/data
     restart: unless-stopped
@@ -12,7 +12,7 @@ services:
       context: .
       dockerfile: Dockerfile.api
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:8787:8787"
+      - "${BIND_ADDR:-127.0.0.1}:${API_PORT:-8787}:8787"
     volumes:
       - umai-data:/data
     environment:
@@ -29,7 +29,7 @@ services:
         VITE_SOLID_DEFAULT_WEB_ID: ${VITE_SOLID_DEFAULT_WEB_ID:-https://umairecepie.solidcommunity.net/profile/card#me}
         VITE_SOLID_DEFAULT_POD_URL: ${VITE_SOLID_DEFAULT_POD_URL:-https://umairecepie.solidcommunity.net/}
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:3000:80"
+      - "${BIND_ADDR:-127.0.0.1}:${WEB_PORT:-3000}:80"
     restart: unless-stopped
 
 volumes:
