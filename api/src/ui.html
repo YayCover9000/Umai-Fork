@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Umai Rezept-Import</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 1.5rem auto; padding: 0 1rem; line-height: 1.4; }
+        h1 { font-size: 1.4rem; }
+        h2 { font-size: 1.1rem; margin-top: 2rem; }
+        label { display: block; margin-top: .75rem; font-weight: 600; }
+        input, textarea, button, select { font: inherit; padding: .5rem; box-sizing: border-box; }
+        input, textarea { width: 100%; margin-top: .25rem; }
+        button { cursor: pointer; margin-top: .75rem; }
+        button:disabled { cursor: default; opacity: .5; }
+        .row { display: flex; gap: .5rem; align-items: end; flex-wrap: wrap; }
+        .row > * { flex: 1 1 10rem; }
+        .row > button { flex: 0 0 auto; }
+        ul { list-style: none; padding: 0; }
+        li.result { border: 1px solid #8884; border-radius: .5rem; padding: .75rem; margin-top: .75rem; }
+        .url { font-size: .85rem; opacity: .7; word-break: break-all; }
+        .error { color: #c62828; }
+        .ok { color: #2e7d32; }
+        .share a, .share button { display: inline-block; margin: .5rem .5rem 0 0; }
+        .small { font-size: .85rem; opacity: .75; }
+    </style>
+</head>
+<body>
+    <h1>Umai Rezept-Import</h1>
+
+    <label for="key">API-Key</label>
+    <input id="key" type="password" autocomplete="off" placeholder="Import-API-Key aus der Setup-Seite">
+
+    <h2>Rezepte importieren</h2>
+    <label for="urls">Rezept-URLs (eine pro Zeile)</label>
+    <textarea id="urls" rows="4" placeholder="https://..."></textarea>
+    <button id="import">Importieren</button>
+    <ul id="results"></ul>
+
+    <h2>Empfänger</h2>
+    <ul id="recipients"></ul>
+    <div class="row">
+        <label>Name <input id="rname"></label>
+        <label>E-Mail <input id="remail" type="email"></label>
+        <button id="radd">Hinzufügen</button>
+    </div>
+
+    <h2>Nachricht</h2>
+    <textarea id="template" rows="3"></textarea>
+    <p class="small">Platzhalter: {name}, {description}, {link}. Der Link führt auf den öffentlichen Umai-Viewer, das Rezept ist dafür lesbar gesetzt.</p>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        const store = {
+            get: key => { try { return localStorage.getItem(key) ?? ''; } catch { return ''; } },
+            set: (key, value) => { try { localStorage.setItem(key, value); } catch {} },
+        };
+        let recipients = [];
+        const imported = [];
+
+        $('key').value = store.get('umai-nas-key');
+        $('key').addEventListener('change', () => { store.set('umai-nas-key', $('key').value); loadRecipients(); });
+        $('template').addEventListener('change', () => store.set('umai-nas-template', $('template').value));
+
+        async function api(path, options = {}) {
+            const response = await fetch(path, {
+                ...options,
+                headers: { authorization: `Bearer ${$('key').value}`, 'content-type': 'application/json' },
+            });
+            return response.json();
+        }
+
+        function text(tag, content, className) {
+            const element = document.createElement(tag);
+            element.textContent = content;
+            if (className) element.className = className;
+            return element;
+        }
+
+        function render(template, recipe) {
+            return template
+                .replaceAll('{name}', recipe.recipeName)
+                .replaceAll('{description}', '')
+                .replaceAll('{link}', recipe.viewerUrl);
+        }
+
+        function renderRecipients() {
+            const list = $('recipients');
+            list.replaceChildren(...recipients.map((recipient, index) => {
+                const item = text('li', `${recipient.name} <${recipient.email}> `);
+                const remove = text('button', 'Entfernen');
+                remove.addEventListener('click', async () => {
+                    recipients.splice(index, 1);
+                    await saveRecipients();
+                });
+                item.append(remove);
+                return item;
+            }));
+            if (recipients.length === 0) list.append(text('li', 'Noch keine Empfänger.', 'small'));
+            renderResults();
+        }
+
+        function renderResults() {
+            $('results').replaceChildren(...imported.map(entry => {
+                const item = text('li', '', 'result');
+                item.append(text('div', entry.url, 'url'));
+
+                if (!entry.ok) {
+                    item.append(text('div', `${entry.error}: ${entry.message}`, 'error'));
+                    return item;
+                }
+
+                item.append(text('div', `${entry.recipeName}${entry.shared ? '' : ' (nicht lesbar gesetzt, Teilen funktioniert nicht)'}`, entry.shared ? 'ok' : 'error'));
+                const share = text('div', '', 'share');
+                const message = render($('template').value, entry);
+
+                for (const recipient of recipients) {
+                    const link = text('a', `Teilen an ${recipient.name}`);
+                    link.href = `mailto:${recipient.email}?subject=${encodeURIComponent(entry.recipeName)}&body=${encodeURIComponent(message)}`;
+                    share.append(link);
+                }
+
+                const copy = text('button', 'Nachricht kopieren');
+                copy.addEventListener('click', () => navigator.clipboard.writeText(message));
+                share.append(copy);
+                item.append(share);
+                return item;
+            }));
+        }
+
+        async function saveRecipients() {
+            const result = await api('/recipients', { method: 'PUT', body: JSON.stringify({ recipients }) });
+            if (!result.ok) alert(result.message);
+            else recipients = result.recipients;
+            renderRecipients();
+        }
+
+        async function loadRecipients() {
+            const result = await api('/recipients');
+            if (!result.ok) { recipients = []; renderRecipients(); return; }
+            recipients = result.recipients;
+            if (!$('template').value) $('template').value = result.shareMessageTemplate ?? 'Hi! Schau dir dieses Rezept an: {name}\n{link}';
+            renderRecipients();
+        }
+
+        $('template').value = store.get('umai-nas-template');
+        $('radd').addEventListener('click', async () => {
+            const name = $('rname').value.trim();
+            const email = $('remail').value.trim();
+            if (!name || !email) return;
+            recipients.push({ name, email });
+            $('rname').value = $('remail').value = '';
+            await saveRecipients();
+        });
+
+        $('import').addEventListener('click', async () => {
+            const urls = $('urls').value.split('\n').map(url => url.trim()).filter(Boolean);
+            $('import').disabled = true;
+            for (const url of urls) {
+                try {
+                    imported.unshift({ url, ...(await api('/import', { method: 'POST', body: JSON.stringify({ url }) })) });
+                } catch {
+                    imported.unshift({ url, ok: false, error: 'NETWORK', message: 'API nicht erreichbar.' });
+                }
+                renderResults();
+            }
+            $('urls').value = '';
+            $('import').disabled = false;
+        });
+
+        loadRecipients();
+    </script>
+</body>
+</html>

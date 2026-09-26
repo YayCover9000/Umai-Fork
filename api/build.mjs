@@ -1,6 +1,7 @@
 // Bundles the API together with the Umai model schemas from ../src, so that recipes are written with exactly the
 // same soukai definitions (CRDT history, RDF shape) as the web app. soukai & co. resolve from the repository root.
 import { build } from 'esbuild';
+import { copyFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,3 +23,5 @@ await build({
     nodePaths: [resolve(root, 'node_modules')],
     banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
 });
+
+await copyFile(resolve(here, 'src/ui.html'), resolve(here, 'dist/ui.html'));
