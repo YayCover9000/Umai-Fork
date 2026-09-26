@@ -1,4 +1,5 @@
 import { Session } from '@inrupt/solid-client-authn-node';
+import { SolidDocumentPermission } from '@noeldemartin/solid-utils';
 import { setEngine } from 'soukai';
 import { SolidEngine } from 'soukai-solid';
 
@@ -48,6 +49,12 @@ async function openSession(config: ImportConfig): Promise<Session> {
     return session;
 }
 
+function looksBlocked(status: number, html: string): boolean {
+    return [202, 403, 429, 503].includes(status)
+        || /sgcaptcha|cf-chl|cf-browser-verification|captcha/i.test(html.slice(0, 5000))
+        || (html.length < 1000 && /http-equiv=["']refresh["']/i.test(html));
+}
+
 async function fetchHtml(url: string): Promise<string> {
     let response: Response;
 
@@ -57,11 +64,17 @@ async function fetchHtml(url: string): Promise<string> {
         throw new ImportError('FETCH_FAILED', 'Die Seite konnte nicht geladen werden.', 502);
     }
 
+    const html = await response.text();
+
+    if (looksBlocked(response.status, html)) {
+        throw new ImportError('BLOCKED_BY_SITE', 'Die Seite blockiert Server-Abrufe (Bot-Schutz).', 422);
+    }
+
     if (!response.ok) {
         throw new ImportError('FETCH_FAILED', `Die Seite antwortete mit HTTP ${response.status}.`, 502);
     }
 
-    return response.text();
+    return html;
 }
 
 export async function importRecipe(config: ImportConfig, url: string) {
@@ -86,7 +99,16 @@ export async function importRecipe(config: ImportConfig, url: string) {
 
         await recipe.save();
 
-        return { name: recipe.name, url: recipe.url, documentUrl: recipe.getDocumentUrl() };
+        let shared = true;
+
+        try {
+            // Same permissions as Umai's "Unlisted" profile: readable through the link, not listed publicly.
+            await recipe.updatePublicPermissions([SolidDocumentPermission.Read]);
+        } catch {
+            shared = false;
+        }
+
+        return { name: recipe.name, url: recipe.url, documentUrl: recipe.getDocumentUrl(), shared };
     } finally {
         await session.logout().catch(() => {});
     }

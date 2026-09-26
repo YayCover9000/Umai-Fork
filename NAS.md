@@ -23,6 +23,19 @@ docker compose up -d --build
 2. If the setup reports that the cookbook was not found, open the web app once, log in and let it sync, then repeat.
 3. Web app: Settings -> "Import via NAS API" takes the API url, the key and a recipe url.
 
+## Import page (Tailscale)
+
+`http://<nas>:8787/` serves a page where you paste recipe urls (one per line), import them and share each one by e-mail to saved recipients (stored in `/data/recipients.json`). Imported recipes are made readable through their link (Umai's "Unlisted" profile); the message links to the public Umai viewer, so recipients do not need Tailscale. The first time, enter the import API key on the page.
+
+Keep it private to the tailnet:
+
+```bash
+echo "BIND_ADDR=$(tailscale ip -4)" >> .env      # ports listen only on the Tailscale address
+tailscale serve --bg --https=443 http://127.0.0.1:8787   # HTTPS at https://<nas>.<tailnet>.ts.net
+```
+
+Do not use `tailscale funnel`, it would expose the page to the internet. With `BIND_ADDR` set to the Tailscale address, `tailscale serve` should target that address instead of 127.0.0.1.
+
 ## Import from other tools
 
 ```bash
