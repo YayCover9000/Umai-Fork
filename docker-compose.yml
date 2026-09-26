@@ -17,6 +17,7 @@ services:
       - umai-data:/data
     environment:
       VIEWER_BASE_URL: ${VIEWER_BASE_URL:-https://umai.noeldemartin.com}
+      ALLOWED_TAILSCALE_LOGINS: ${ALLOWED_TAILSCALE_LOGINS:-}
     restart: unless-stopped
 
   web:
