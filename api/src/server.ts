@@ -23,7 +23,12 @@ async function readConfig(): Promise<Config | null> {
 }
 
 function send(response: ServerResponse, status: number, payload: unknown): void {
-    response.writeHead(status, { 'content-type': 'application/json' });
+    response.writeHead(status, {
+        'content-type': 'application/json',
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': 'authorization, content-type',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+    });
     response.end(JSON.stringify(payload));
 }
 
@@ -41,6 +46,8 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
 
 createServer(async (request, response) => {
     try {
+        if (request.method === 'OPTIONS') return send(response, 204, {});
+
         if (request.method === 'GET' && request.url === '/health') return send(response, 200, { ok: true });
 
         const config = await readConfig();

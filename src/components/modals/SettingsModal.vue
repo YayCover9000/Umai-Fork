@@ -58,6 +58,8 @@
                 />
             </div>
         </div>
+        <hr>
+        <SettingsNasImport />
     </AppModal>
 </template>
 

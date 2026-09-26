@@ -40,6 +40,14 @@ cloud:
 
 settings:
   title: Configuración
+  nasImport: Importar con la API del NAS
+  nasImport_description: Envía la url de una receta a tu API de importación de umai-nas, que la guarda directamente en tu Pod. Sincroniza después para verla aquí.
+  nasImport_apiUrl: Url de la API
+  nasImport_apiKey: Clave de la API
+  nasImport_recipeUrl: Url de la receta
+  nasImport_submit: Importar
+  nasImport_success: 'Importada: {name}'
+  nasImport_error: La importación falló. Comprueba la url y la clave de la API.
   language: Idioma
   language_description: ¿No encuentras tu idioma? [¡Aporta tu traducción!](https://github.com/NoelDeMartin/umai/blob/main/docs/contribute-translations.md)
   animations: Animaciones
