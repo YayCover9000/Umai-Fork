@@ -1,0 +1,32 @@
+services:
+  setup:
+    build: ./setup
+    ports:
+      - "8080:8080"
+    volumes:
+      - umai-data:/data
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    ports:
+      - "8787:8787"
+    volumes:
+      - umai-data:/data:ro
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_IMPORT_API_URL: ${VITE_IMPORT_API_URL:-http://localhost:8787}
+        VITE_SOLID_DEFAULT_ISSUER: ${VITE_SOLID_DEFAULT_ISSUER:-https://solidcommunity.net}
+        VITE_SOLID_DEFAULT_WEB_ID: ${VITE_SOLID_DEFAULT_WEB_ID:-https://umairecepie.solidcommunity.net/profile/card#me}
+        VITE_SOLID_DEFAULT_POD_URL: ${VITE_SOLID_DEFAULT_POD_URL:-https://umairecepie.solidcommunity.net/}
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+volumes:
+  umai-data:

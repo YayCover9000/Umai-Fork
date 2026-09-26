@@ -1,0 +1,10 @@
+{
+    "name": "umai-nas-setup",
+    "private": true,
+    "type": "module",
+    "scripts": { "start": "node src/server.mjs" },
+    "dependencies": {
+        "@inrupt/solid-client-authn-node": "^2.2.0",
+        "n3": "^1.17.0"
+    }
+}
