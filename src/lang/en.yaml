@@ -297,6 +297,10 @@ recipes:
   share_jsonld: JSON-LD
   share_print: Print
   shareWith: Share with
+  shareMessage: Message
+  shareMessage_help: 'Placeholders: {name}, {description}, {link}'
+  shareEmail: Send by email
+  shareWhatsApp: Send via WhatsApp
 
   accessControl:
     profile_public: Public
