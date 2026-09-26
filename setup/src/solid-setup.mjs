@@ -21,8 +21,9 @@ export async function createClientCredentials({ issuer, email, password, webId, 
             body: JSON.stringify({ email, password }),
         }),
     );
-    const headers = { authorization: `CSS-Account-Token ${authorization}`, 'content-type': 'application/json' };
-    const account = (await json(await fetch(base, { headers }))).controls;
+    const auth = { authorization: `CSS-Account-Token ${authorization}` };
+    const headers = { ...auth, 'content-type': 'application/json' };
+    const account = (await json(await fetch(base, { headers: auth }))).controls;
     const { id, secret } = await json(
         await fetch(account.account.clientCredentials, {
             method: 'POST',

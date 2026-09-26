@@ -1,0 +1,19 @@
+# Build context is the repository root: the API bundles the model schemas from ./src and resolves soukai & co.
+# (including the patches applied by patch-package) from the root node_modules.
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY patches ./patches
+RUN npm ci
+COPY src ./src
+COPY api ./api
+RUN cd api && npm ci && node build.mjs
+
+FROM node:22-alpine
+WORKDIR /app
+COPY api/package.json api/package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/api/dist ./dist
+USER node
+EXPOSE 8787
+CMD ["node", "dist/server.mjs"]

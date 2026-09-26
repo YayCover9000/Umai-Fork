@@ -8,11 +8,15 @@ services:
     restart: unless-stopped
 
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     ports:
       - "8787:8787"
     volumes:
       - umai-data:/data:ro
+    environment:
+      VIEWER_BASE_URL: ${VIEWER_BASE_URL:-http://localhost:3000}
     restart: unless-stopped
 
   web:

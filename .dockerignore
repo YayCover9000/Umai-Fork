@@ -1,0 +1,9 @@
+.git
+.idea
+node_modules
+dist
+api/node_modules
+api/dist
+setup/node_modules
+solid-server/node_modules
+solid-server/data
