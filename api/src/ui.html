@@ -29,13 +29,17 @@
 <body>
     <h1>Umai Rezept-Import</h1>
 
-    <label for="key">API-Key</label>
-    <input id="key" type="password" autocomplete="off" placeholder="Import-API-Key aus der Setup-Seite">
+    <section id="auth">
+        <label for="key">API-Key</label>
+        <input id="key" type="password" autocomplete="off" placeholder="Import-API-Key aus der Setup-Seite">
+        <p id="authinfo" class="small"></p>
+    </section>
 
     <h2>Rezepte importieren</h2>
     <label for="urls">Rezept-URLs (eine pro Zeile)</label>
     <textarea id="urls" rows="4" placeholder="https://..."></textarea>
     <button id="import">Importieren</button>
+    <h2>Verlauf</h2>
     <ul id="results"></ul>
 
     <h2>Empfänger</h2>
@@ -48,7 +52,7 @@
 
     <h2>Nachricht</h2>
     <textarea id="template" rows="3"></textarea>
-    <p class="small">Platzhalter: {name}, {description}, {link}. Der Link führt auf den öffentlichen Umai-Viewer, das Rezept ist dafür lesbar gesetzt.</p>
+    <p class="small">Wird auf dem NAS gespeichert. Platzhalter: {name}, {description}, {link}. Der Link führt auf den öffentlichen Umai-Viewer, das Rezept ist dafür lesbar gesetzt.</p>
 
     <script>
         const $ = id => document.getElementById(id);
@@ -57,17 +61,15 @@
             set: (key, value) => { try { localStorage.setItem(key, value); } catch {} },
         };
         let recipients = [];
-        const imported = [];
+        let history = [];
 
         $('key').value = store.get('umai-nas-key');
-        $('key').addEventListener('change', () => { store.set('umai-nas-key', $('key').value); loadRecipients(); });
-        $('template').addEventListener('change', () => store.set('umai-nas-template', $('template').value));
+        $('key').addEventListener('change', () => { store.set('umai-nas-key', $('key').value); load(); });
 
         async function api(path, options = {}) {
-            const response = await fetch(path, {
-                ...options,
-                headers: { authorization: `Bearer ${$('key').value}`, 'content-type': 'application/json' },
-            });
+            const headers = { 'content-type': 'application/json' };
+            if ($('key').value) headers.authorization = `Bearer ${$('key').value}`;
+            const response = await fetch(path, { ...options, headers });
             return response.json();
         }
 
@@ -78,11 +80,11 @@
             return element;
         }
 
-        function render(template, recipe) {
+        function render(template, entry) {
             return template
-                .replaceAll('{name}', recipe.recipeName)
+                .replaceAll('{name}', entry.recipeName)
                 .replaceAll('{description}', '')
-                .replaceAll('{link}', recipe.viewerUrl);
+                .replaceAll('{link}', entry.viewerUrl);
         }
 
         function renderRecipients() {
@@ -98,33 +100,41 @@
                 return item;
             }));
             if (recipients.length === 0) list.append(text('li', 'Noch keine Empfänger.', 'small'));
-            renderResults();
+            renderHistory();
         }
 
-        function renderResults() {
-            $('results').replaceChildren(...imported.map(entry => {
+        function renderHistory() {
+            const list = $('results');
+            if (history.length === 0) { list.replaceChildren(text('li', 'Noch nichts importiert.', 'small')); return; }
+            list.replaceChildren(...history.map(entry => {
                 const item = text('li', '', 'result');
-                item.append(text('div', entry.url, 'url'));
+                item.append(text('div', `${new Date(entry.at).toLocaleString('de-DE')} · ${entry.url}`, 'url'));
 
                 if (!entry.ok) {
                     item.append(text('div', `${entry.error}: ${entry.message}`, 'error'));
-                    return item;
+                } else {
+                    item.append(text('div', `${entry.recipeName}${entry.shared ? '' : ' (nicht lesbar gesetzt, Teilen funktioniert nicht)'}`, entry.shared ? 'ok' : 'error'));
+                    const share = text('div', '', 'share');
+                    const message = render($('template').value, entry);
+
+                    for (const recipient of recipients) {
+                        const link = text('a', `Teilen an ${recipient.name}`);
+                        link.href = `mailto:${recipient.email}?subject=${encodeURIComponent(entry.recipeName)}&body=${encodeURIComponent(message)}`;
+                        share.append(link);
+                    }
+
+                    const copy = text('button', 'Nachricht kopieren');
+                    copy.addEventListener('click', () => navigator.clipboard.writeText(message));
+                    share.append(copy);
+                    item.append(share);
                 }
 
-                item.append(text('div', `${entry.recipeName}${entry.shared ? '' : ' (nicht lesbar gesetzt, Teilen funktioniert nicht)'}`, entry.shared ? 'ok' : 'error'));
-                const share = text('div', '', 'share');
-                const message = render($('template').value, entry);
-
-                for (const recipient of recipients) {
-                    const link = text('a', `Teilen an ${recipient.name}`);
-                    link.href = `mailto:${recipient.email}?subject=${encodeURIComponent(entry.recipeName)}&body=${encodeURIComponent(message)}`;
-                    share.append(link);
-                }
-
-                const copy = text('button', 'Nachricht kopieren');
-                copy.addEventListener('click', () => navigator.clipboard.writeText(message));
-                share.append(copy);
-                item.append(share);
+                const remove = text('button', 'Aus Verlauf entfernen', 'small');
+                remove.addEventListener('click', async () => {
+                    await api(`/history/${encodeURIComponent(entry.id)}`, { method: 'DELETE' });
+                    await load();
+                });
+                item.append(remove);
                 return item;
             }));
         }
@@ -136,15 +146,27 @@
             renderRecipients();
         }
 
-        async function loadRecipients() {
-            const result = await api('/recipients');
-            if (!result.ok) { recipients = []; renderRecipients(); return; }
-            recipients = result.recipients;
-            if (!$('template').value) $('template').value = result.shareMessageTemplate ?? 'Hi! Schau dir dieses Rezept an: {name}\n{link}';
+        async function load() {
+            const state = await api('/state');
+            if (!state.ok) {
+                $('authinfo').textContent = 'API-Key erforderlich.';
+                recipients = []; history = []; renderRecipients();
+                return;
+            }
+            $('authinfo').textContent = state.auth === 'tailscale'
+                ? 'Angemeldet über Tailscale, der Key ist optional.'
+                : 'Angemeldet mit API-Key.';
+            recipients = state.recipients;
+            history = state.history;
+            $('template').value = state.template ?? 'Hi! Schau dir dieses Rezept an: {name}\n{link}';
             renderRecipients();
         }
 
-        $('template').value = store.get('umai-nas-template');
+        $('template').addEventListener('change', async () => {
+            await api('/settings', { method: 'PUT', body: JSON.stringify({ template: $('template').value }) });
+            renderHistory();
+        });
+
         $('radd').addEventListener('click', async () => {
             const name = $('rname').value.trim();
             const email = $('remail').value.trim();
@@ -159,17 +181,18 @@
             $('import').disabled = true;
             for (const url of urls) {
                 try {
-                    imported.unshift({ url, ...(await api('/import', { method: 'POST', body: JSON.stringify({ url }) })) });
+                    await api('/import', { method: 'POST', body: JSON.stringify({ url }) });
                 } catch {
-                    imported.unshift({ url, ok: false, error: 'NETWORK', message: 'API nicht erreichbar.' });
+                    alert('API nicht erreichbar.');
+                    break;
                 }
-                renderResults();
+                await load();
             }
             $('urls').value = '';
             $('import').disabled = false;
         });
 
-        loadRecipients();
+        load();
     </script>
 </body>
 </html>
