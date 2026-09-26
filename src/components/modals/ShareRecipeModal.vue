@@ -10,6 +10,23 @@
         <template #default="{ close }">
             <RecipeShareOptions v-model="shareOption" />
             <CoreClipboard v-if="clipboardContent" class="mt-4 max-w-prose" :text="clipboardContent" />
+            <div v-if="shareOption === 'umai'" class="mt-4 max-w-prose w-full">
+                <label class="block mb-1" for="share-message">{{ $t('recipes.shareMessage') }}</label>
+                <textarea
+                    id="share-message"
+                    v-model="messageTemplate"
+                    rows="4"
+                    class="w-full border border-gray-300 rounded p-2"
+                    @change="saveShareMessageTemplate(messageTemplate)"
+                />
+                <p class="text-sm text-gray-600 mt-1">{{ $t('recipes.shareMessage_help') }}</p>
+                <div class="flex gap-x-2 mt-2">
+                    <a :href="mailHref" class="underline">{{ $t('recipes.shareEmail') }}</a>
+                    <a :href="whatsappHref" target="_blank" rel="noopener" class="underline">
+                        {{ $t('recipes.shareWhatsApp') }}
+                    </a>
+                </div>
+            </div>
             <p v-if="warning" class="text-red-500 flex self-start mt-2 max-w-prose">
                 <i-zondicons-exclamation-outline class="w-4 h-4 mt-1 mr-2 flex-shrink-0" />
                 {{ warning }}
@@ -57,6 +74,13 @@ import { requiredObjectProp } from '@/framework/utils/vue';
 import { translate } from '@/framework/utils/translate';
 
 import Cookbook from '@/services/facades/Cookbook';
+import {
+    loadShareMessageTemplate,
+    mailtoUrl,
+    renderShareMessage,
+    saveShareMessageTemplate,
+    whatsappUrl,
+} from '@/utils/shareMessage';
 import { RecipeShareOption } from '@/components/recipe/RecipeShareOptions';
 import type Recipe from '@/models/Recipe';
 
@@ -74,6 +98,15 @@ const clipboardContents: Record<RecipeShareOption, string | null> = $computed(()
     [RecipeShareOption.JsonLD]: JSON.stringify(recipe.toExternalJsonLD({ includeHistory }), null, 2),
     [RecipeShareOption.Print]: null,
 }));
+const messageTemplate = $ref(loadShareMessageTemplate());
+const shareMessage = $computed(() =>
+    renderShareMessage(messageTemplate, {
+        name: recipe.name,
+        description: recipe.description ?? undefined,
+        link: clipboardContents[RecipeShareOption.Umai] as string,
+    }));
+const mailHref = $computed(() => mailtoUrl(recipe.name, shareMessage));
+const whatsappHref = $computed(() => whatsappUrl(shareMessage));
 const clipboardContent = $computed(() => clipboardContents[shareOption as RecipeShareOption & PropertyKey]);
 const requiresPermissions = $computed(() => {
     if (!Cookbook.isRemote) {

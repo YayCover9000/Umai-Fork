@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Umai NAS Setup</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 34rem; margin: 2rem auto; padding: 0 1rem; }
+        label { display: block; margin-top: 1rem; }
+        input, textarea, button { width: 100%; padding: .5rem; box-sizing: border-box; margin-top: .25rem; }
+        button { margin-top: 1.5rem; cursor: pointer; }
+        #status { margin-top: 1.5rem; white-space: pre-wrap; }
+        .error { color: #b00020; }
+    </style>
+</head>
+<body>
+    <h1>Umai NAS Setup</h1>
+    <p id="current"></p>
+    <form id="form">
+        <label>SolidCommunity E-Mail <input name="email" type="email" required autocomplete="username"></label>
+        <label>Passwort (wird nicht gespeichert)
+            <input name="password" type="password" required autocomplete="current-password">
+        </label>
+        <label>Pod <input name="podUrl" required></label>
+        <label>Token-Name <input name="tokenName" value="umai-nas-import"></label>
+        <label>Share-Nachricht
+            <textarea name="shareMessageTemplate" rows="3">Hi! Schau dir dieses Rezept an: {name}
+{link}</textarea>
+        </label>
+        <label id="keyRow" hidden>Aktueller API-Key (zum Ändern) <input name="currentApiKey"></label>
+        <button>Verbinden &amp; Speichern</button>
+    </form>
+    <div id="status" role="status"></div>
+    <script>
+        const form = document.getElementById('form');
+        const status = document.getElementById('status');
+
+        fetch('/api/status').then(r => r.json()).then(s => {
+            form.podUrl.value = s.podUrl ?? s.defaultPodUrl;
+            if (s.configured) {
+                document.getElementById('current').textContent =
+                    `Verbunden: ${s.webId}\nCookbook: ${s.cookbookUrl}`;
+                document.getElementById('keyRow').hidden = false;
+            }
+        });
+
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            status.className = '';
+            status.textContent = 'Verbinde ...';
+            const payload = Object.fromEntries(new FormData(form));
+            const result = await fetch('/api/setup', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload),
+            }).then(r => r.json());
+            form.password.value = '';
+            if (!result.ok) {
+                status.className = 'error';
+                status.textContent = result.message;
+                return;
+            }
+            status.textContent =
+                `Verbindung OK\nWebID: ${result.webId}\nCookbook: ${result.cookbookUrl}\n` +
+                `Import-API-Key (jetzt notieren): ${result.importApiKey}`;
+        });
+    </script>
+</body>
+</html>

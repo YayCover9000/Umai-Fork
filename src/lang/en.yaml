@@ -40,6 +40,14 @@ cloud:
 
 settings:
   title: Settings
+  nasImport: Import via NAS API
+  nasImport_description: Sends a recipe url to your umai-nas import API, which saves it directly to your Pod. Sync afterwards to see it here.
+  nasImport_apiUrl: API url
+  nasImport_apiKey: API key
+  nasImport_recipeUrl: Recipe url
+  nasImport_submit: Import
+  nasImport_success: 'Imported: {name}'
+  nasImport_error: Import failed. Check the API url and key.
   language: Language
   language_description: Can't find your language? [You can contribute it!](https://github.com/NoelDeMartin/umai/blob/main/docs/contribute-translations.md)
   animations: Animations
@@ -297,6 +305,10 @@ recipes:
   share_jsonld: JSON-LD
   share_print: Print
   shareWith: Share with
+  shareMessage: Message
+  shareMessage_help: 'Placeholders: {name}, {description}, {link}'
+  shareEmail: Send by email
+  shareWhatsApp: Send via WhatsApp
 
   accessControl:
     profile_public: Public
